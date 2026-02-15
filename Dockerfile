@@ -1,12 +1,12 @@
-ARG BUILD_FROM
+ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base-python:3.11-alpine3.18
 FROM ${BUILD_FROM}
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install build dependencies for Python packages
+RUN apk add --no-cache \
     gcc \
+    musl-dev \
     libffi-dev \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
+    openssl-dev
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt /tmp/
