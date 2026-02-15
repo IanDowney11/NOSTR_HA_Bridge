@@ -1,12 +1,4 @@
-ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base-python:3.11-alpine3.18
-FROM ${BUILD_FROM}
-
-# Install build dependencies for Python packages
-RUN apk add --no-cache \
-    gcc \
-    musl-dev \
-    libffi-dev \
-    openssl-dev
+FROM python:3.11-slim-bookworm
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt /tmp/
@@ -21,4 +13,4 @@ RUN chmod a+x /app/run.sh
 
 WORKDIR /app
 
-CMD ["/app/run.sh"]
+CMD ["python3", "-m", "src.main"]

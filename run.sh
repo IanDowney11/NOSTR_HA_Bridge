@@ -1,9 +1,9 @@
-#!/usr/bin/with-contenv bashio
+#!/bin/bash
 # ==============================================================================
 # NOSTR-HA Bridge - Startup Script
 # ==============================================================================
 
-bashio::log.info "Starting NOSTR-HA Bridge..."
+echo "Starting NOSTR-HA Bridge..."
 
 cd /app
 exec python3 -m src.main
