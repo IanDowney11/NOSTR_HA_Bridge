@@ -1,0 +1,6 @@
+options.local.json
+__pycache__/
+*.pyc
+.env
+tools/api_test.py
+error.txt

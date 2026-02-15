@@ -1,0 +1,12 @@
+{
+  "nostr_private_key": "nsec1_YOUR_BRIDGE_PRIVATE_KEY_HERE",
+  "publisher_public_key": "npub1_YOUR_PUBLISHER_PUBLIC_KEY_HERE",
+  "relays": [
+    "wss://relay.damus.io",
+    "wss://nos.lol"
+  ],
+  "event_kinds": [30078],
+  "poll_fallback_interval": 300,
+  "entity_prefix": "nostr",
+  "log_level": "debug"
+}
