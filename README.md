@@ -263,4 +263,4 @@ content: >-
 
 ## License
 
-MIT
+This project is released into the public domain under the [Unlicense](LICENSE). Do whatever you want with it.
