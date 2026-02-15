@@ -1,4 +1,5 @@
-FROM python:3.11-slim-bookworm
+ARG BUILD_FROM=docker.io/library/python:3.11-slim-bookworm
+FROM ${BUILD_FROM}
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt /tmp/
