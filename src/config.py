@@ -34,7 +34,14 @@ class BridgeConfig:
         if not self.relays:
             raise ValueError("At least one relay URL is required")
         for url in self.relays:
-            if not url.startswith(("wss://", "ws://")):
+            if url.startswith("ws://"):
+                logger.warning(
+                    "Relay %s uses unencrypted ws:// — metadata (pubkeys, "
+                    "d-tags, timestamps) will be visible on the network. "
+                    "Use wss:// for secure connections.",
+                    url,
+                )
+            elif not url.startswith("wss://"):
                 raise ValueError(f"Invalid relay URL (must start with wss:// or ws://): {url}")
 
 

@@ -1,8 +1,12 @@
 """Pydantic models for NOSTR event payloads routed into Home Assistant."""
 
+import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+# Only lowercase alphanumeric and underscores — no path traversal or special chars
+ENTITY_ID_PATTERN = re.compile(r"^[a-z0-9_]{1,64}$")
 
 
 class SensorPayload(BaseModel):
@@ -13,6 +17,13 @@ class SensorPayload(BaseModel):
     device_class: str = ""
     attributes: dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("entity_id")
+    @classmethod
+    def validate_entity_id(cls, v: str) -> str:
+        if not ENTITY_ID_PATTERN.match(v):
+            raise ValueError(f"entity_id must match [a-z0-9_]{{1,64}}, got: {v!r}")
+        return v
+
 
 class BinarySensorPayload(BaseModel):
     type: Literal["binary_sensor"] = "binary_sensor"
@@ -20,6 +31,13 @@ class BinarySensorPayload(BaseModel):
     state: bool
     device_class: str = ""
     attributes: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("entity_id")
+    @classmethod
+    def validate_entity_id(cls, v: str) -> str:
+        if not ENTITY_ID_PATTERN.match(v):
+            raise ValueError(f"entity_id must match [a-z0-9_]{{1,64}}, got: {v!r}")
+        return v
 
 
 class NotificationPayload(BaseModel):

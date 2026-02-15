@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 
 from nostr_sdk import Event
 
@@ -15,6 +16,9 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Strip control characters (except newline/tab) to prevent log injection
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 
 
 class EventRouter:
@@ -45,7 +49,8 @@ class EventRouter:
         try:
             raw = json.loads(plaintext)
         except json.JSONDecodeError:
-            logger.error("Event %s: content is not valid JSON: %s", event.id().to_hex()[:12], plaintext[:200])
+            safe_preview = _CONTROL_CHARS.sub("", plaintext[:200])
+            logger.error("Event %s: content is not valid JSON: %s", event.id().to_hex()[:12], safe_preview)
             return
 
         payload_type = raw.get("type")
@@ -86,30 +91,33 @@ class EventRouter:
         match payload:
             case SensorPayload():
                 entity_id = f"sensor.{self._prefix}_{payload.entity_id}"
+                # Spread user attributes first so hardcoded values cannot be overridden
+                attrs = {
+                    **payload.attributes,
+                    "unit_of_measurement": payload.unit,
+                    "device_class": payload.device_class,
+                    "friendly_name": payload.entity_id.replace("_", " ").title(),
+                    "source": "nostr",
+                }
                 await self._ha.set_state(
                     entity_id=entity_id,
                     state=str(payload.value),
-                    attributes={
-                        "unit_of_measurement": payload.unit,
-                        "device_class": payload.device_class,
-                        "friendly_name": payload.entity_id.replace("_", " ").title(),
-                        "source": "nostr",
-                        **payload.attributes,
-                    },
+                    attributes=attrs,
                 )
                 logger.info("Updated %s = %s%s", entity_id, payload.value, payload.unit)
 
             case BinarySensorPayload():
                 entity_id = f"binary_sensor.{self._prefix}_{payload.entity_id}"
+                attrs = {
+                    **payload.attributes,
+                    "device_class": payload.device_class,
+                    "friendly_name": payload.entity_id.replace("_", " ").title(),
+                    "source": "nostr",
+                }
                 await self._ha.set_state(
                     entity_id=entity_id,
                     state="on" if payload.state else "off",
-                    attributes={
-                        "device_class": payload.device_class,
-                        "friendly_name": payload.entity_id.replace("_", " ").title(),
-                        "source": "nostr",
-                        **payload.attributes,
-                    },
+                    attributes=attrs,
                 )
                 logger.info("Updated %s = %s", entity_id, "on" if payload.state else "off")
 

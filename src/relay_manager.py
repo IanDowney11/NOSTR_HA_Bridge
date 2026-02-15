@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
 
@@ -28,7 +29,7 @@ EventCallback = Callable[[str, Event], Awaitable[None]]
 class NostrEventHandler(HandleNotification):
     """nostr-sdk notification handler that decrypts and forwards events."""
 
-    def __init__(self, crypto: Nip44Crypto, callback: EventCallback, seen: set[str]):
+    def __init__(self, crypto: Nip44Crypto, callback: EventCallback, seen: OrderedDict[str, None]):
         self._crypto = crypto
         self._callback = callback
         self._seen = seen
@@ -39,7 +40,7 @@ class NostrEventHandler(HandleNotification):
         # Deduplicate across relays
         if event_id in self._seen:
             return
-        self._seen.add(event_id)
+        self._seen[event_id] = None
 
         # Verify the event is from the expected publisher
         if event.author().to_hex() != self._crypto.publisher_public_key.to_hex():
@@ -75,7 +76,7 @@ class RelayManager:
         self._crypto = crypto
         self._callback = callback
         self._client: Client | None = None
-        self._seen: set[str] = set()
+        self._seen: OrderedDict[str, None] = OrderedDict()
         # Cap the seen-set to prevent unbounded memory growth
         self._max_seen = 10_000
 
@@ -127,7 +128,7 @@ class RelayManager:
             event_id = event.id().to_hex()
             if event_id in self._seen:
                 continue
-            self._seen.add(event_id)
+            self._seen[event_id] = None
 
             try:
                 plaintext = self._crypto.decrypt(event.content())
@@ -147,9 +148,9 @@ class RelayManager:
             logger.info("Disconnected from all relays")
 
     def _prune_seen(self) -> None:
-        """Prevent the seen-set from growing without bound."""
+        """Prevent the seen-set from growing without bound (FIFO eviction)."""
         if len(self._seen) > self._max_seen:
-            # Keep the most recent half
+            # Evict oldest entries first (FIFO order via OrderedDict)
             excess = len(self._seen) - (self._max_seen // 2)
             for _ in range(excess):
-                self._seen.pop()
+                self._seen.popitem(last=False)

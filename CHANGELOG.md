@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.0
+
+### Security Hardening
+
+- **Entity ID validation**: Reject payloads with entity IDs containing special characters (only `[a-z0-9_]` allowed, max 64 chars)
+- **Image URL validation**: Only accept `http://` and `https://` schemes for `entity_picture` attributes
+- **Non-root container**: Docker container now runs as a dedicated `bridge` user instead of root
+- **Attribute spoofing prevention**: Hardcoded entity attributes (`friendly_name`, `source`) can no longer be overridden by publisher payloads
+- **Log injection prevention**: Control characters stripped from decrypted content before logging
+- **ws:// relay warning**: Unencrypted WebSocket relay URLs now produce a prominent warning at startup
+- **Plan cache bounded**: Meal plan cache limited to a 30-day window around today to prevent memory exhaustion
+- **FIFO deduplication**: Seen-event set now evicts oldest entries first (was random) using `OrderedDict`
+- **`.dockerignore` added**: Prevents `options.local.json`, `.git/`, and other sensitive files from leaking into Docker image layers
+
 ## 0.4.1
 
 - Fix `build.yaml` to use fully-qualified Docker Hub image references (HA Supervisor requires `registry/org/image` format)

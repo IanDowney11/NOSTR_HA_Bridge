@@ -1,12 +1,15 @@
 """MyMealPlanner integration — extracts meal plan data into HA entities."""
 
 import logging
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from .ha_client import HomeAssistantClient
 
 logger = logging.getLogger(__name__)
+
+# Only keep plans within this window of today to prevent unbounded memory growth
+_CACHE_WINDOW_DAYS = 30
 
 
 class MealPlannerHandler:
@@ -35,6 +38,11 @@ class MealPlannerHandler:
             logger.warning("Meal plan event missing 'date' field: %s", d_tag)
             return
 
+        # Only cache dates within a reasonable window to prevent memory exhaustion
+        if not self._is_date_in_window(plan_date):
+            logger.debug("Ignoring plan outside cache window: %s", plan_date)
+            return
+
         # Log the full structure on first plan to help debug
         meal_data = data.get("meal_data", {})
         logger.info(
@@ -45,6 +53,7 @@ class MealPlannerHandler:
         )
 
         self._plans[plan_date] = data
+        self._prune_old_plans()
         await self._update_todays_meal()
 
     async def refresh_today(self) -> None:
@@ -82,8 +91,10 @@ class MealPlannerHandler:
                 "description": description[:255] if description else "",
                 "meal_id": plan.get("meal_id", ""),
             }
-            if image:
+            if image and isinstance(image, str) and image.startswith(("https://", "http://")):
                 attributes["entity_picture"] = image
+            elif image:
+                logger.warning("Ignoring invalid entity_picture URL scheme: %.100s", image)
 
             await self._ha.set_state(
                 entity_id=entity_id,
@@ -122,3 +133,21 @@ class MealPlannerHandler:
             if plan.get("id") == plan_id:
                 return plan_date
         return None
+
+    @staticmethod
+    def _is_date_in_window(date_str: str) -> bool:
+        """Check if a date string falls within the cache window."""
+        try:
+            plan_date = date.fromisoformat(date_str)
+        except (ValueError, TypeError):
+            return False
+        today = date.today()
+        return today - timedelta(days=_CACHE_WINDOW_DAYS) <= plan_date <= today + timedelta(days=_CACHE_WINDOW_DAYS)
+
+    def _prune_old_plans(self) -> None:
+        """Remove cached plans outside the date window."""
+        stale = [d for d in self._plans if not self._is_date_in_window(d)]
+        for d in stale:
+            del self._plans[d]
+        if stale:
+            logger.debug("Pruned %d stale plan(s) from cache", len(stale))
