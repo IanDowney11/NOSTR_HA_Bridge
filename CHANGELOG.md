@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.2
+
+- **Early logging init**: Configure logging before `load_config()` so startup errors (e.g. missing `/data/options.json`) include timestamps
+- **Fix `/data` permission denied**: Container starts as root to chmod HA-mounted `/data`, then drops to non-root `bridge` user via `gosu`
+
 ## 0.5.0
 
 ### Security Hardening

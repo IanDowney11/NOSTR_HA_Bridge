@@ -1,6 +1,6 @@
 name: "NOSTR Bridge"
 description: "Bridge encrypted NOSTR events into Home Assistant entities"
-version: "0.5.1"
+version: "0.5.2"
 slug: "nostr_ha_bridge"
 url: "https://github.com/IanDowney11/NOSTR_HA_Bridge"
 arch:

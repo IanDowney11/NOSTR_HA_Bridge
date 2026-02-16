@@ -15,13 +15,19 @@ logger = logging.getLogger("nostr_ha_bridge")
 
 
 async def run() -> None:
+    # Set up logging early so startup errors get timestamps
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        stream=sys.stdout,
+    )
+
     # ── Load configuration ──────────────────────────────────────────────
     config = load_config()
 
-    logging.basicConfig(
-        level=getattr(logging, config.log_level.upper(), logging.INFO),
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        stream=sys.stdout,
+    # Re-apply with the configured log level
+    logging.getLogger().setLevel(
+        getattr(logging, config.log_level.upper(), logging.INFO)
     )
     logger.info("NOSTR-HA Bridge starting up")
     logger.info("Relays: %s", ", ".join(config.relays))
