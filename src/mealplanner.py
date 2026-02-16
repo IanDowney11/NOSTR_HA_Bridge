@@ -93,8 +93,6 @@ class MealPlannerHandler:
             }
             if image and isinstance(image, str) and image.startswith(("https://", "http://")):
                 attributes["entity_picture"] = image
-            elif image:
-                logger.warning("Ignoring invalid entity_picture URL scheme: %.100s", image)
 
             await self._ha.set_state(
                 entity_id=entity_id,
