@@ -9,7 +9,7 @@ from .ha_client import HomeAssistantClient
 logger = logging.getLogger(__name__)
 
 # Only keep plans within this window of today to prevent unbounded memory growth
-_CACHE_WINDOW_DAYS = 30
+_CACHE_FUTURE_DAYS = 30
 
 
 class MealPlannerHandler:
@@ -18,7 +18,7 @@ class MealPlannerHandler:
     def __init__(self, ha_client: HomeAssistantClient, entity_prefix: str = "nostr"):
         self._ha = ha_client
         self._prefix = entity_prefix
-        # Cache all meal plans so we can find today's
+        # Cache meal plans for today and future so we can find today's
         self._plans: dict[str, dict[str, Any]] = {}  # date_str -> plan data
         self._last_today: str = ""  # Track date changes
 
@@ -38,18 +38,35 @@ class MealPlannerHandler:
             logger.warning("Meal plan event missing 'date' field: %s", d_tag)
             return
 
-        # Only cache dates within a reasonable window to prevent memory exhaustion
-        if not self._is_date_in_window(plan_date):
-            logger.debug("Ignoring plan outside cache window: %s", plan_date)
+        # Only cache today and future dates (no need for past plans)
+        if not self._is_today_or_future(plan_date):
+            logger.debug("Ignoring past plan: %s", plan_date)
             return
 
-        # Log the full structure on first plan to help debug
+        # If we already have a plan for this date, only overwrite if the
+        # incoming event is newer (by updatedAt).  This prevents stale
+        # relay events from clobbering the current plan.
+        existing = self._plans.get(plan_date)
+        if existing:
+            incoming_ts = data.get("updatedAt", "")
+            existing_ts = existing.get("updatedAt", "")
+            if incoming_ts and existing_ts and incoming_ts < existing_ts:
+                meal_data = data.get("meal_data", {})
+                logger.info(
+                    "Skipping older plan for %s: title=%s (updatedAt %s < %s)",
+                    plan_date,
+                    meal_data.get("title", "<no title>"),
+                    incoming_ts,
+                    existing_ts,
+                )
+                return
+
         meal_data = data.get("meal_data", {})
         logger.info(
-            "Cached meal plan for %s: title=%s, keys=%s",
+            "Cached meal plan for %s: title=%s, updatedAt=%s",
             plan_date,
             meal_data.get("title", "<no title>"),
-            list(meal_data.keys()) if isinstance(meal_data, dict) else type(meal_data).__name__,
+            data.get("updatedAt", "<none>"),
         )
 
         self._plans[plan_date] = data
@@ -138,18 +155,18 @@ class MealPlannerHandler:
         return None
 
     @staticmethod
-    def _is_date_in_window(date_str: str) -> bool:
-        """Check if a date string falls within the cache window."""
+    def _is_today_or_future(date_str: str) -> bool:
+        """Check if a date string is today or in the future (within cache window)."""
         try:
             plan_date = date.fromisoformat(date_str)
         except (ValueError, TypeError):
             return False
         today = date.today()
-        return today - timedelta(days=_CACHE_WINDOW_DAYS) <= plan_date <= today + timedelta(days=_CACHE_WINDOW_DAYS)
+        return today <= plan_date <= today + timedelta(days=_CACHE_FUTURE_DAYS)
 
     def _prune_old_plans(self) -> None:
-        """Remove cached plans outside the date window."""
-        stale = [d for d in self._plans if not self._is_date_in_window(d)]
+        """Remove cached plans that are now in the past or outside the window."""
+        stale = [d for d in self._plans if not self._is_today_or_future(d)]
         for d in stale:
             del self._plans[d]
         if stale:
