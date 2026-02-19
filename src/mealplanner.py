@@ -56,12 +56,17 @@ class MealPlannerHandler:
         self._prune_old_plans()
         await self._update_todays_meal()
 
-    async def refresh_today(self) -> None:
-        """Re-evaluate today's meal. Called periodically by the main loop."""
+    async def refresh_today(self) -> bool:
+        """Re-evaluate today's meal. Called periodically by the main loop.
+
+        Returns True if the date changed (caller should re-fetch from relays).
+        """
         today_str = date.today().strftime("%Y-%m-%d")
         if today_str != self._last_today:
             logger.info("Date changed to %s — refreshing today's meal", today_str)
             await self._update_todays_meal()
+            return True
+        return False
 
     async def _update_todays_meal(self) -> None:
         """Update the HA sensor with today's meal plan."""

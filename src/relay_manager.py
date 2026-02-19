@@ -111,6 +111,20 @@ class RelayManager:
 
     async def fetch_latest(self) -> None:
         """Poll relays for the latest events (fallback/catchup)."""
+        await self._fetch_events(skip_seen=False)
+
+    async def fetch_fresh(self) -> None:
+        """Fetch events from relays, bypassing the seen-set dedup.
+
+        Used on date change to ensure the in-memory cache is fully
+        rehydrated even if events were previously fetched but lost
+        (e.g. after a restart or missed real-time delivery).
+        """
+        logger.info("Performing fresh fetch (bypassing seen-set)")
+        await self._fetch_events(skip_seen=True)
+
+    async def _fetch_events(self, *, skip_seen: bool) -> None:
+        """Internal: fetch events from relays with optional dedup bypass."""
         if not self._client:
             return
 
@@ -126,7 +140,7 @@ class RelayManager:
 
         for event in events.to_vec():
             event_id = event.id().to_hex()
-            if event_id in self._seen:
+            if not skip_seen and event_id in self._seen:
                 continue
             self._seen[event_id] = None
 

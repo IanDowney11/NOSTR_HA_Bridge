@@ -29,9 +29,12 @@ class EventRouter:
         self._prefix = entity_prefix
         self._mealplanner = MealPlannerHandler(ha_client, entity_prefix)
 
-    async def refresh_daily(self) -> None:
-        """Called periodically to handle date rollovers."""
-        await self._mealplanner.refresh_today()
+    async def refresh_daily(self) -> bool:
+        """Called periodically to handle date rollovers.
+
+        Returns True if the date changed (caller should re-fetch from relays).
+        """
+        return await self._mealplanner.refresh_today()
 
     async def handle_event(self, plaintext: str, event: Event) -> None:
         """Parse a decrypted JSON payload and route it to HA.

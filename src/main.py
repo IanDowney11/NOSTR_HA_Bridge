@@ -84,7 +84,14 @@ async def run() -> None:
 
             # Check if the date has changed (for daily meal plan refresh)
             try:
-                await router.refresh_daily()
+                date_changed = await router.refresh_daily()
+                if date_changed:
+                    # Re-fetch from relays bypassing seen-set so the
+                    # in-memory cache picks up any plans that were missed
+                    logger.info("Date changed — re-fetching from relays")
+                    await relay_mgr.fetch_fresh()
+                    # Re-evaluate today's meal now that cache is rehydrated
+                    await router.refresh_daily()
             except Exception:
                 logger.exception("Error during daily refresh")
 
